@@ -23,7 +23,7 @@ import configparser
 
 
 # define -------------------------------
-SW_VERSION = '2022.11.08'
+SW_VERSION = '2022.12.05'
 CONFIG_FILE = 'kocom.conf'
 BUF_SIZE = 100
 
@@ -84,7 +84,7 @@ def mqtt_on_log(mqttc, obj, level, string):
 def mqtt_on_connect(mqttc, userdata, flags, rc):
     if rc == 0:
         logging.info("[MQTT] Connected - 0: OK")
-        mqttc.subscribe('kocom/#', 0)
+        mqttc.subscribe('kocom_prugio/#', 0)
     else:
         logging.error("[MQTT] Connection error - {}: {}".format(rc, mqtt.connack_string(rc)))
 
@@ -469,12 +469,12 @@ def mqtt_on_message(mqttc, obj, msg):
                 logging.debug('elevator send failed')
                 return
 
-            threading.Thread(target=mqttc.publish, args=("kocom/myhome/elevator/state", state_on)).start()
+            threading.Thread(target=mqttc.publish, args=("kocom_prugio/myhome/elevator/state", state_on)).start()
             if config.get('Elevator', 'rs485_floor', fallback=None) == None:
-                threading.Timer(5, mqttc.publish, args=("kocom/myhome/elevator/state", state_off)).start()
+                threading.Timer(5, mqttc.publish, args=("kocom_prugio/myhome/elevator/state", state_off)).start()
 
         elif command == 'off':
-            threading.Thread(target=mqttc.publish, args=("kocom/myhome/elevator/state", state_off)).start()
+            threading.Thread(target=mqttc.publish, args=("kocom_prugio/myhome/elevator/state", state_off)).start()
 
     # kocom/livingroom/fan/set_preset_mode/command
     elif 'fan' in topic_d and 'set_preset_mode' in topic_d:
@@ -522,19 +522,19 @@ def packet_processor(p):
         if p['src'] == 'thermo' and p['cmd'] == 'state':
             state = thermo_parse(p['value'])
             logtxt='[MQTT publish|thermo] id[{}] data[{}]'.format(p['src_subid'], state)
-            mqttc.publish("kocom/room/thermo/" + p['src_subid'] + "/state", json.dumps(state))
+            mqttc.publish("kocom_prugio/room/thermo/" + p['src_subid'] + "/state", json.dumps(state))
         elif p['src'] == 'light' and p['cmd'] == 'state':
             state = light_parse(p['value'])
             logtxt='[MQTT publish|light] room[{}] data[{}]'.format(p['src_room'], state)
-            mqttc.publish("kocom/{}/light/state".format(p['src_room']), json.dumps(state))
+            mqttc.publish("kocom_prugio/{}/light/state".format(p['src_room']), json.dumps(state))
         elif p['src'] == 'fan' and p['cmd'] == 'state':
             state = fan_parse(p['value'])
             logtxt='[MQTT publish|fan] data[{}]'.format(state)
-            mqttc.publish("kocom/livingroom/fan/state", json.dumps(state))
+            mqttc.publish("kocom_prugio/livingroom/fan/state", json.dumps(state))
         elif p['src'] == 'gas':
             state = {'state': p['cmd']}
             logtxt='[MQTT publish|gas] data[{}]'.format(state)
-            mqttc.publish("kocom/livingroom/gas/state", json.dumps(state))
+            mqttc.publish("kocom_prugio/livingroom/gas/state", json.dumps(state))
     elif p['type'] == 'send' and p['dest'] == 'elevator':
         floor = int(p['value'][2:4],16)
         rs485_floor = int(config.get('Elevator','rs485_floor', fallback=0))
@@ -545,7 +545,7 @@ def packet_processor(p):
         else:
             state = {'state': 'off'}
         logtxt='[MQTT publish|elevator] data[{}]'.format(state)
-        mqttc.publish("kocom/myhome/elevator/state", json.dumps(state))
+        mqttc.publish("kocom_prugio/myhome/elevator/state", json.dumps(state))
         # aa5530bc0044000100010300000000000000350d0d
 
     if logtxt != "" and config.get('Log', 'show_mqtt_publish') == 'True':
@@ -574,18 +574,18 @@ def publish_discovery(dev, sub=''):
         topic = 'homeassistant/fan/kocom_wallpad_fan/config'
         payload = {
             'name': 'Kocom Wallpad Fan',
-            'cmd_t': 'kocom/livingroom/fan/command',
-            'stat_t': 'kocom/livingroom/fan/state',
+            'cmd_t': 'kocom_prugio/livingroom/fan/command',
+            'stat_t': 'kocom_prugio/livingroom/fan/state',
             'stat_val_tpl': '{{ value_json.state }}',
-            'pr_mode_stat_t': 'kocom/livingroom/fan/state',
+            'pr_mode_stat_t': 'kocom_prugio/livingroom/fan/state',
             'pr_mode_val_tpl': '{{ value_json.preset }}',
-            'pr_mode_cmd_t': 'kocom/livingroom/fan/set_preset_mode/command',
+            'pr_mode_cmd_t': 'kocom_prugio/livingroom/fan/set_preset_mode/command',
             'pr_mode_cmd_tpl': '{{ value }}',
             'pr_modes': ['Off', 'Low', 'Medium', 'High'],
             'pl_on': 'on',
             'pl_off': 'off',
             'qos': 0,
-            'uniq_id': '{}_{}_{}'.format('kocom', 'wallpad', dev),
+            'uniq_id': '{}_{}_{}'.format('kocom_prugio', 'wallpad', dev),
             'device': {
                 'name': '코콤 스마트 월패드',
                 'ids': 'kocom_smart_wallpad',
@@ -602,14 +602,14 @@ def publish_discovery(dev, sub=''):
         topic = 'homeassistant/switch/kocom_wallpad_gas/config'
         payload = {
             'name': 'Kocom Wallpad Gas',
-            'cmd_t': 'kocom/livingroom/gas/command',
-            'stat_t': 'kocom/livingroom/gas/state',
+            'cmd_t': 'kocom_prugio/livingroom/gas/command',
+            'stat_t': 'kocom_prugio/livingroom/gas/state',
             'val_tpl': '{{ value_json.state }}',
             'pl_on': 'on',
             'pl_off': 'off',
             'ic': 'mdi:gas-cylinder',
             'qos': 0,
-            'uniq_id': '{}_{}_{}'.format('kocom', 'wallpad', dev),
+            'uniq_id': '{}_{}_{}'.format('kocom_prugio', 'wallpad', dev),
             'device': {
                 'name': '코콤 스마트 월패드',
                 'ids': 'kocom_smart_wallpad',
@@ -626,14 +626,14 @@ def publish_discovery(dev, sub=''):
         topic = 'homeassistant/switch/kocom_wallpad_elevator/config'
         payload = {
             'name': 'Kocom Wallpad Elevator',
-            'cmd_t': "kocom/myhome/elevator/command",
-            'stat_t': "kocom/myhome/elevator/state",
+            'cmd_t': "kocom_prugio/myhome/elevator/command",
+            'stat_t': "kocom_prugio/myhome/elevator/state",
             'val_tpl': "{{ value_json.state }}",
             'pl_on': 'on',
             'pl_off': 'off',
             'ic': 'mdi:elevator',
             'qos': 0,
-            'uniq_id': '{}_{}_{}'.format('kocom', 'wallpad', dev),
+            'uniq_id': '{}_{}_{}'.format('kocom_prugio', 'wallpad', dev),
             'device': {
                 'name': '코콤 스마트 월패드',
                 'ids': 'kocom_smart_wallpad',
@@ -652,14 +652,14 @@ def publish_discovery(dev, sub=''):
             topic = 'homeassistant/light/kocom_{}_light{}/config'.format(sub, num)
             payload = {
                 'name': 'Kocom {} Light{}'.format(sub, num),
-                'cmd_t': 'kocom/{}/light/{}/command'.format(sub, num),
-                'stat_t': 'kocom/{}/light/state'.format(sub),
+                'cmd_t': 'kocom_prugio/{}/light/{}/command'.format(sub, num),
+                'stat_t': 'kocom_prugio/{}/light/state'.format(sub),
                 'stat_val_tpl': '{{ value_json.light_' + str(num) + ' }}',
                 'pl_on': 'on',
                 'pl_off': 'off',
                 'qos': 0,
 #               'uniq_id': '{}_{}_{}{}'.format('kocom', 'wallpad', dev, num),      # 20221108 주석처리
-                'uniq_id': '{}_{}_{}{}'.format('kocom', sub, dev, num),            # 20221108 수정
+                'uniq_id': '{}_{}_{}{}'.format('kocom_prugio', sub, dev, num),            # 20221108 수정
                 'device': {
                     'name': '코콤 스마트 월패드',
                     'ids': 'kocom_smart_wallpad',
@@ -678,22 +678,22 @@ def publish_discovery(dev, sub=''):
         topic = 'homeassistant/climate/kocom_{}_thermostat/config'.format(sub)
         payload = {
             'name': 'Kocom {} Thermostat'.format(sub),
-            'mode_cmd_t': 'kocom/room/thermo/{}/heat_mode/command'.format(num),
-            'mode_stat_t': 'kocom/room/thermo/{}/state'.format(num),
+            'mode_cmd_t': 'kocom_prugio/room/thermo/{}/heat_mode/command'.format(num),
+            'mode_stat_t': 'kocom_prugio/room/thermo/{}/state'.format(num),
             'mode_stat_tpl': '{{ value_json.heat_mode }}',
 
-            'temp_cmd_t': 'kocom/room/thermo/{}/set_temp/command'.format(num),
-            'temp_stat_t': 'kocom/room/thermo/{}/state'.format(num),
+            'temp_cmd_t': 'kocom_prugio/room/thermo/{}/set_temp/command'.format(num),
+            'temp_stat_t': 'kocom_prugio/room/thermo/{}/state'.format(num),
             'temp_stat_tpl': '{{ value_json.set_temp }}',
 
-            'curr_temp_t': 'kocom/room/thermo/{}/state'.format(num),
+            'curr_temp_t': 'kocom_prugio/room/thermo/{}/state'.format(num),
             'curr_temp_tpl': '{{ value_json.cur_temp }}',
             'modes': ['off', 'heat'],
             'min_temp': 20,
             'max_temp': 30,
             'ret': 'false',
             'qos': 0,
-            'uniq_id': '{}_{}_{}{}'.format('kocom', 'wallpad', dev, num),
+            'uniq_id': '{}_{}_{}{}'.format('kocom_prugio', 'wallpad', dev, num),
             'device': {
                 'name': '코콤 스마트 월패드',
                 'ids': 'kocom_smart_wallpad',
@@ -710,9 +710,9 @@ def publish_discovery(dev, sub=''):
         topic = 'homeassistant/button/kocom_wallpad_query/config'
         payload = {
             'name': 'Kocom Wallpad Query',
-            'cmd_t': 'kocom/myhome/query/command',
+            'cmd_t': 'kocom_prugio/myhome/query/command',
             'qos': 0,
-            'uniq_id': '{}_{}_{}'.format('kocom', 'wallpad', dev),
+            'uniq_id': '{}_{}_{}'.format('kocom_prugio', 'wallpad', dev),
             'device': {
                 'name': '코콤 스마트 월패드',
                 'ids': 'kocom_smart_wallpad',
